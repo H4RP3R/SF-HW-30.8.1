@@ -59,7 +59,7 @@ INSERT INTO tasks (title, content, author_id, assigned_id) VALUES
     ('Implement new feature', 'Implement a new feature to improve user experience.', 3, 1),
     ('Write documentation', 'Write documentation for the new feature.', 4, 5),
     ('Refactor code', 'Refactor the code to improve performance.', 2, 3),
-    ('Test new feature', 'Test the new feature to ensure it works as expected.', 5, 1);
+    ('Test new feature', 'Test the new feature to ensure it works as expected.', 4, 1);
 
 -- Повесить метки на таски
 INSERT INTO tasks_labels (task_id, label_id) VALUES
