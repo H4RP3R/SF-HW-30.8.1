@@ -2,9 +2,13 @@ package storage
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
+
+var ErrNoTasksToAdd = fmt.Errorf("empty tasks slice")
 
 // Хранилище данных.
 type Storage struct {
@@ -101,4 +105,37 @@ func (s *Storage) NewTask(t Task) (int, error) {
 		t.Content,
 	).Scan(&id)
 	return id, err
+}
+
+// NewTasks создает несколько новых задач
+func (s *Storage) NewTasks(tasks []Task) error {
+	if len(tasks) == 0 {
+		return ErrNoTasksToAdd
+	}
+
+	ctx := context.Background()
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	batch := new(pgx.Batch)
+	for _, t := range tasks {
+		batch.Queue(`
+        INSERT INTO tasks (title, content)
+		VALUES ($1, $2);
+        `,
+			t.Title,
+			t.Content,
+		)
+	}
+
+	res := tx.SendBatch(ctx, batch)
+	err = res.Close()
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
