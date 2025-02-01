@@ -11,6 +11,14 @@ type Storage struct {
 	db *pgxpool.Pool
 }
 
+func (s *Storage) Ping() error {
+	return s.db.Ping(context.Background())
+}
+
+func (s *Storage) Close() {
+	s.db.Close()
+}
+
 // Конструктор, принимает строку подключения к БД.
 func New(constr string) (*Storage, error) {
 	db, err := pgxpool.Connect(context.Background(), constr)
