@@ -137,3 +137,57 @@ func TestStorage_TasksByAuthorIDDoesNotExist(t *testing.T) {
 		t.Errorf("tasks num: want %d, got %d", wantTasksCnt, len(tasks))
 	}
 }
+
+func TestStorage_NewTasks(t *testing.T) {
+	task1 := Task{
+		Title:   "Task 1",
+		Content: "This is the content of Task 1",
+	}
+	task2 := Task{
+		Title:   "Task 2",
+		Content: "This is the content of Task 2",
+	}
+	task3 := Task{
+		Title:   "Task 3",
+		Content: "This is the content of Task 3",
+	}
+
+	tests := []struct {
+		name    string
+		tasks   []Task
+		wantErr error
+	}{
+		{"No tasks", []Task{}, ErrNoTasksToAdd},
+		{"Three tasks", []Task{task1, task2, task3}, nil},
+	}
+
+	db, err := storageConnect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tasks, err := db.Tasks(0, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			taskNumBefore := len(tasks)
+
+			err = db.NewTasks(tt.tasks)
+			if err != tt.wantErr {
+				t.Errorf("expected error %v, got error %v", tt.wantErr, err)
+			}
+			tasks, err = db.Tasks(0, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			taskNumAfter := len(tasks)
+			wantTaskNum := taskNumBefore + len(tt.tasks)
+			if taskNumAfter != wantTaskNum {
+				t.Errorf("new tasks wer'nt added: expected tasks %d, got tasks %d", wantTaskNum, taskNumAfter)
+			}
+		})
+	}
+}
