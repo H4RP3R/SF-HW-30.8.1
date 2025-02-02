@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 )
 
 var (
@@ -187,6 +188,115 @@ func TestStorage_NewTasks(t *testing.T) {
 			wantTaskNum := taskNumBefore + len(tt.tasks)
 			if taskNumAfter != wantTaskNum {
 				t.Errorf("new tasks wer'nt added: expected tasks %d, got tasks %d", wantTaskNum, taskNumAfter)
+			}
+		})
+	}
+}
+
+func TestStorage_UpdateTaskAllFields(t *testing.T) {
+	db, err := storageConnect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	targetTaskID := 6
+	newClosed := time.Now().Unix() + 1000
+	newAssignedID := 4
+	newTitle := "New Title"
+	newContent := "New Text"
+	err = db.UpdateTask(targetTaskID, newAssignedID, newClosed, newTitle, newContent)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	tasks, err := db.Tasks(targetTaskID, 0)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(tasks) == 0 {
+		t.Fatalf("Unable to find target task id:%d", targetTaskID)
+	}
+	updatedTask := tasks[0]
+
+	if updatedTask.AssignedID != newAssignedID {
+		t.Errorf("task.assigned_id: want %d, got %d", newAssignedID, updatedTask.AssignedID)
+	}
+	if updatedTask.Closed != newClosed {
+		t.Errorf("task.assigned_id: want %d, got %d", newClosed, updatedTask.Closed)
+	}
+	if updatedTask.Title != newTitle {
+		t.Errorf("task.assigned_id: want %s, got %s", newTitle, updatedTask.Title)
+	}
+	if updatedTask.Content != newContent {
+		t.Errorf("task.assigned_id: want %s, got %s", newContent, updatedTask.Content)
+	}
+}
+
+func TestStorage_UpdateTaskPartialFields(t *testing.T) {
+	db, err := storageConnect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	targetTaskID := 5
+	type param struct {
+		Closed     int64
+		AssignedID int
+		Title      string
+		Content    string
+	}
+
+	tests := []struct {
+		name string
+		param
+	}{
+		{"field: closed", param{Closed: time.Now().Unix() + 1000}},
+		{"field: assigned_id", param{AssignedID: 1}},
+		{"field: title", param{Title: "New title"}},
+		{"field: content", param{Content: "New content"}},
+		{"multiple fields: closed and assigned_id", param{Closed: time.Now().Unix() + 1000, AssignedID: 2}},
+		{"multiple fields: title and content", param{Title: "New title", Content: "New content"}},
+		{"all fields", param{Closed: time.Now().Unix() + 1000, AssignedID: 3, Title: "New title", Content: "New content"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tasks, err := db.Tasks(targetTaskID, 0)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if len(tasks) == 0 {
+				t.Fatalf("Unable to find target task id:%d", targetTaskID)
+			}
+			taskBeforeUpdate := tasks[0]
+
+			err = db.UpdateTask(targetTaskID, tt.AssignedID, tt.Closed, tt.Title, tt.Content)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+
+			tasks, err = db.Tasks(targetTaskID, 0)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			if len(tasks) == 0 {
+				t.Fatalf("Unable to find target task id:%d", targetTaskID)
+			}
+			updatedTask := tasks[0]
+
+			if tt.AssignedID == 0 && updatedTask.AssignedID != taskBeforeUpdate.AssignedID {
+				t.Errorf("task.assigned_id: want %d, got %d", taskBeforeUpdate.AssignedID, updatedTask.AssignedID)
+			}
+			if tt.Closed == 0 && updatedTask.Closed != taskBeforeUpdate.Closed {
+				t.Errorf("task.assigned_id: want %d, got %d", taskBeforeUpdate.Closed, updatedTask.Closed)
+			}
+			if tt.Title == "" && updatedTask.Title != taskBeforeUpdate.Title {
+				t.Errorf("task.assigned_id: want %s, got %s", taskBeforeUpdate.Title, updatedTask.Title)
+			}
+			if tt.Content == "" && updatedTask.Content != taskBeforeUpdate.Content {
+				t.Errorf("task.assigned_id: want %s, got %s", taskBeforeUpdate.Content, updatedTask.Content)
 			}
 		})
 	}
