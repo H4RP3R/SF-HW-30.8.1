@@ -166,3 +166,19 @@ func (s *Storage) UpdateTask(taskID, assignedID int, closed int64, title, conten
 
 	return nil
 }
+
+// DeleteTask удаляет задачу по ID.
+func (s *Storage) DeleteTask(taskID int) error {
+	ctx := context.Background()
+	_, err := s.db.Exec(ctx, `
+		DELETE FROM tasks
+		WHERE id = $1
+	`,
+		taskID,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
