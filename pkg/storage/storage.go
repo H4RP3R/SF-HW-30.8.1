@@ -139,3 +139,30 @@ func (s *Storage) NewTasks(tasks []Task) error {
 
 	return tx.Commit(ctx)
 }
+
+// UpdateTask обновляет задачу по id.
+// Обновляет соответствующие атрибуты в случае если передан не нулевой параметр.
+// Обновление происходит в один SQL запрос.
+func (s *Storage) UpdateTask(taskID, assignedID int, closed int64, title, content string) error {
+	ctx := context.Background()
+	_, err := s.db.Exec(ctx, `
+		UPDATE tasks
+		SET
+			closed = CASE WHEN $2 > 0 THEN $2 ELSE closed END,
+			assigned_id = CASE WHEN $3 > 0 THEN $3 ELSE assigned_id END,
+			title = CASE WHEN $4 <> '' THEN $4 ELSE title END,
+			content = CASE WHEN $5 <> '' THEN $5 ELSE content END
+		WHERE id = $1
+	`,
+		taskID,
+		closed,
+		assignedID,
+		title,
+		content,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
