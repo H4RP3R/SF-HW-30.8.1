@@ -30,8 +30,8 @@ CREATE TABLE tasks (
 
 -- связь многие - ко- многим между задачами и метками
 CREATE TABLE tasks_labels (
-    task_id INTEGER REFERENCES tasks(id),
-    label_id INTEGER REFERENCES labels(id)
+    task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+    label_id INTEGER REFERENCES labels(id) ON DELETE CASCADE
 );
 -- наполнение БД начальными данными
 INSERT INTO users (id, name) VALUES (0, 'default');
