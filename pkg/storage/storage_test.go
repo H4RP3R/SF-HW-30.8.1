@@ -200,7 +200,7 @@ func TestStorage_UpdateTaskAllFields(t *testing.T) {
 	}
 	defer db.Close()
 
-	targetTaskID := 6
+	targetTaskID := 3
 	newClosed := time.Now().Unix() + 1000
 	newAssignedID := 4
 	newTitle := "New Title"
@@ -299,5 +299,77 @@ func TestStorage_UpdateTaskPartialFields(t *testing.T) {
 				t.Errorf("task.assigned_id: want %s, got %s", taskBeforeUpdate.Content, updatedTask.Content)
 			}
 		})
+	}
+}
+
+func TestStorage_DeleteTaskIDExists(t *testing.T) {
+	db, err := storageConnect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	tasks, err := db.Tasks(0, 0)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(tasks) == 0 {
+		t.Fatal("Test DB is empty")
+	}
+
+	const tasksToDel = 3
+	expectedTasksNum := len(tasks) - tasksToDel
+
+	taskIdToDelete := make([]int, tasksToDel, tasksToDel)
+	for i := expectedTasksNum; i < len(tasks); i++ {
+		taskIdToDelete = append(taskIdToDelete, tasks[i].ID)
+	}
+
+	for _, id := range taskIdToDelete {
+		err := db.DeleteTask(id)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		tasks, err := db.Tasks(0, 0)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		for _, task := range tasks {
+			if task.ID == id {
+				t.Errorf("Task with id:%d wasn't deleted", id)
+			}
+		}
+	}
+
+	tasks, err = db.Tasks(0, 0)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if len(tasks) != expectedTasksNum {
+		t.Errorf("Tasks num: want %d, got %d", expectedTasksNum, len(tasks))
+	}
+}
+
+func TestStorage_DeleteTaskIDDoesNotExist(t *testing.T) {
+	db, err := storageConnect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	targetID := 9999
+	err = db.DeleteTask(targetID)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	tasks, err := db.Tasks(0, 0)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	for _, task := range tasks {
+		if task.ID == targetID {
+			t.Errorf("Task with id:%d wasn't deleted", targetID)
+		}
 	}
 }
