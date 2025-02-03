@@ -11,6 +11,7 @@ import (
 var (
 	ErrNoTasksToAdd = fmt.Errorf("empty tasks slice")
 	ErrTaskNotFound = fmt.Errorf("task not found")
+	ErrEmptyLabel   = fmt.Errorf("label cannot be empty")
 )
 
 // Хранилище данных.
@@ -187,6 +188,55 @@ func (s *Storage) TasksByAuthorID(authorID int) ([]Task, error) {
 	`,
 		authorID,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	var tasks []Task
+	for rows.Next() {
+		var t Task
+		err = rows.Scan(
+			&t.ID,
+			&t.Opened,
+			&t.Closed,
+			&t.AuthorID,
+			&t.AssignedID,
+			&t.Title,
+			&t.Content,
+		)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, t)
+	}
+
+	return tasks, rows.Err()
+}
+
+// TasksByLabel возвращает список задач из БД по метке.
+func (s *Storage) TasksByLabel(label string) ([]Task, error) {
+	if label == "" {
+		return nil, ErrEmptyLabel
+	}
+
+	ctx := context.Background()
+	rows, err := s.db.Query(ctx, `
+		SELECT
+			t.id,
+			t.opened,
+			t.closed,
+			t.author_id,
+			t.assigned_id,
+			t.title,
+			t.content
+		FROM tasks AS t
+		JOIN tasks_labels AS tl
+		ON tl.task_id = t.id
+		JOIN labels AS l
+		ON tl.label_id = l.id
+		WHERE l.name = $1
+	`,
+		label)
 	if err != nil {
 		return nil, err
 	}
