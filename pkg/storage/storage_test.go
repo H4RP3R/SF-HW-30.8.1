@@ -460,3 +460,38 @@ func TestStorage_DeleteTaskIDDoesNotExist(t *testing.T) {
 		}
 	}
 }
+
+func TestStorage_NewTask(t *testing.T) {
+	db, err := storageConnect()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deleteNewTask := func(id int) {
+		err := db.DeleteTask(id)
+		if err != nil {
+			t.Errorf("Can't remove new task: %v", err)
+		}
+		db.Close()
+	}
+
+	newTask := Task{
+		Title:   "New Test Task",
+		Content: "Some content",
+	}
+
+	newTaskID, err := db.NewTask(newTask)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	t.Cleanup(func() {
+		deleteNewTask(newTaskID)
+	})
+
+	_, err = db.TaskByID(newTaskID)
+	if errors.Is(err, ErrTaskNotFound) {
+		t.Errorf("Can't find new task in DB: %v", err)
+	} else if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+}
