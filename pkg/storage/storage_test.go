@@ -1,8 +1,10 @@
 package storage
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -39,7 +41,7 @@ func storageConnect() (*Storage, error) {
 	return db, nil
 }
 
-func TestStorage_TasksAll(t *testing.T) {
+func TestStorage_Tasks(t *testing.T) {
 	db, err := storageConnect()
 	if err != nil {
 		t.Fatal(err)
@@ -48,6 +50,23 @@ func TestStorage_TasksAll(t *testing.T) {
 
 	wantTasksCnt := 5
 	tasks, err := db.Tasks(0, 0)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if len(tasks) != wantTasksCnt {
+		t.Errorf("tasks num: want %d, got %d", wantTasksCnt, len(tasks))
+	}
+}
+
+func TestStorage_TasksAll(t *testing.T) {
+	db, err := storageConnect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	wantTasksCnt := 5
+	tasks, err := db.TasksAll()
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -97,6 +116,42 @@ func TestStorage_TasksByTaskIDDoesNotExist(t *testing.T) {
 	}
 }
 
+func TestStorage_TasksByID(t *testing.T) {
+	db, err := storageConnect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	tasks, err := db.TasksAll()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	for _, targetTask := range tasks {
+		task, err := db.TaskByID(targetTask.ID)
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+		if !reflect.DeepEqual(task, targetTask) {
+			t.Errorf("Tasks do not match: %+v, %+v", task, targetTask)
+		}
+	}
+}
+
+func TestStorage_TasksByIDDoesNotExist(t *testing.T) {
+	db, err := storageConnect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	targetID := 99999
+	_, err = db.TaskByID(targetID)
+	if !errors.Is(err, ErrTaskNotFound) {
+		t.Errorf("error: want %v, got %v", ErrTaskNotFound, err)
+	}
+}
+
 func TestStorage_TasksByAuthorIDExists(t *testing.T) {
 	db, err := storageConnect()
 	if err != nil {
@@ -106,7 +161,7 @@ func TestStorage_TasksByAuthorIDExists(t *testing.T) {
 
 	wantTasksCnt := 2
 	targetAuthorID := 4
-	tasks, err := db.Tasks(0, targetAuthorID)
+	tasks, err := db.TasksByAuthorID(targetAuthorID)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -130,7 +185,7 @@ func TestStorage_TasksByAuthorIDDoesNotExist(t *testing.T) {
 
 	wantTasksCnt := 0
 	targetAuthorID := 42
-	tasks, err := db.Tasks(0, targetAuthorID)
+	tasks, err := db.TasksByAuthorID(targetAuthorID)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
