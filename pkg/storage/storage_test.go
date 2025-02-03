@@ -194,6 +194,38 @@ func TestStorage_TasksByAuthorIDDoesNotExist(t *testing.T) {
 	}
 }
 
+func TestStorage_TasksByLabel(t *testing.T) {
+	db, err := storageConnect()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	tests := []struct {
+		name        string
+		targetLabel string
+		wantTaskCnt int
+		wantError   error
+	}{
+		{"label exists, 2 tasks", "Feature", 2, nil},
+		{"label exists, 1 task", "Bug", 1, nil},
+		{"label doesn't exist, 0 tasks, 2 tasks", "chore", 0, nil},
+		{"empty label, 0 task", "", 0, ErrEmptyLabel},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tasks, err := db.TasksByLabel(tt.targetLabel)
+			if !errors.Is(err, tt.wantError) {
+				t.Errorf("error: want %v, got %v", tt.wantError, err)
+			}
+			if len(tasks) != tt.wantTaskCnt {
+				t.Errorf("Tasks num: want %d, got %d", tt.wantTaskCnt, len(tasks))
+			}
+		})
+	}
+}
+
 func TestStorage_NewTasks(t *testing.T) {
 	task1 := Task{
 		Title:   "Task 1",
