@@ -8,7 +8,10 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
-var ErrNoTasksToAdd = fmt.Errorf("empty tasks slice")
+var (
+	ErrNoTasksToAdd = fmt.Errorf("empty tasks slice")
+	ErrTaskNotFound = fmt.Errorf("task not found")
+)
 
 // Хранилище данных.
 type Storage struct {
@@ -46,7 +49,7 @@ type Task struct {
 	Content    string
 }
 
-// Tasks возвращает список задач из БД.
+// Deprecated: Tasks возвращает список задач из БД.
 func (s *Storage) Tasks(taskID, authorID int) ([]Task, error) {
 	rows, err := s.db.Query(context.Background(), `
 		SELECT 
@@ -91,6 +94,121 @@ func (s *Storage) Tasks(taskID, authorID int) ([]Task, error) {
 
 	}
 	// ВАЖНО не забыть проверить rows.Err()
+	return tasks, rows.Err()
+}
+
+// TasksAll возвращает список задач из БД.
+func (s *Storage) TasksAll() ([]Task, error) {
+	ctx := context.Background()
+	rows, err := s.db.Query(ctx, `
+		SELECT
+			id,
+			opened,
+			closed,
+			author_id,
+			assigned_id,
+			title,
+			content
+		FROM tasks
+	`)
+	if err != nil {
+		return nil, err
+	}
+
+	var tasks []Task
+	for rows.Next() {
+		var t Task
+		err = rows.Scan(
+			&t.ID,
+			&t.Opened,
+			&t.Closed,
+			&t.AuthorID,
+			&t.AssignedID,
+			&t.Title,
+			&t.Content,
+		)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, t)
+	}
+
+	return tasks, rows.Err()
+}
+
+// TasksByID возвращает задачу по ID.
+func (s *Storage) TaskByID(taskID int) (Task, error) {
+	ctx := context.Background()
+	var task Task
+	err := s.db.QueryRow(ctx, `
+		SELECT
+			id,
+			opened,
+			closed,
+			author_id,
+			assigned_id,
+			title,
+			content
+		FROM tasks
+		WHERE id = $1
+	`,
+		taskID,
+	).Scan(
+		&task.ID,
+		&task.Opened,
+		&task.Closed,
+		&task.AuthorID,
+		&task.AssignedID,
+		&task.Title,
+		&task.Content,
+	)
+
+	if err == pgx.ErrNoRows {
+		return task, ErrTaskNotFound
+	}
+
+	return task, err
+}
+
+// TaskByAuthorID возвращает список задач из БД по ID автора.
+func (s *Storage) TasksByAuthorID(authorID int) ([]Task, error) {
+	ctx := context.Background()
+	rows, err := s.db.Query(ctx, `
+		SELECT
+			id,
+			opened,
+			closed,
+			author_id,
+			assigned_id,
+			title,
+			content
+		FROM tasks
+		WHERE author_id = $1
+	`,
+		authorID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var tasks []Task
+	for rows.Next() {
+		var t Task
+		err = rows.Scan(
+			&t.ID,
+			&t.Opened,
+			&t.Closed,
+			&t.AuthorID,
+			&t.AssignedID,
+			&t.Title,
+			&t.Content,
+		)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, t)
+	}
+
 	return tasks, rows.Err()
 }
 
